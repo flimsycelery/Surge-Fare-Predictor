@@ -161,7 +161,16 @@ with tabs[0]:
     col_date, col_time = st.columns(2)
 
     with col_date:
-        selected_date = st.date_input("Select Date", st.session_state.selected_date)
+        today = pd.Timestamp.now().date()
+        max_date = today + pd.Timedelta(days=5)
+
+        selected_date = st.date_input(
+            "Select Date", 
+            value=st.session_state.selected_date,
+            min_value=today,
+            max_value=max_date,
+            help="Prediction is limited to 5 days ahead due to weather forecast accuracy."
+        )
         st.session_state.selected_date = selected_date
 
     with col_time:

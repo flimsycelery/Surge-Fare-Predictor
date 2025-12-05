@@ -205,29 +205,58 @@ with tabs[0]:
         st.write(f"Probabilities — Low: {p[0]:.2f}, Medium: {p[1]:.2f}, High: {p[2]:.2f}")
         st.write(f"Estimated Fare: ₹{base_fare * mult:.0f} (×{mult})")
 
-        with st.expander("Check Price for 1 Hour Later"):
-            future_dt = prediction_dt + pd.Timedelta(hours=1)
-            
-            f_traffic = estimate_future_traffic(future_dt, zone)
-            f_temp, f_weather = get_future_weather(zone_info["lat"], zone_info["lon"], future_dt)
-            
-            if f_weather not in le_weather.classes_:
-                f_weather = "Clear"
-            
-            df_future = build_input_df(future_dt, zone, f_temp, f_weather, f_traffic, passenger_count)
-            
-            f_pred, _ = predict_from_model(model, df_future)
-            f_label = le_surge.inverse_transform([int(f_pred[0])])[0]
-            
-            st.write(f"Prediction for **{future_dt.strftime('%H:%M')}**: {f_label}")
-            
-            if surge_label == "High" and f_label != "High":
-                st.success(f"Money Saver: If you wait until {future_dt.strftime('%H:%M')}, the surge drops to {f_label}!")
-            elif surge_label == f_label:
-                st.info("The price stays the same. No need to wait.")
-            else:
-                st.warning("Price is going UP later. Book now!")
+        with st.expander("Smart Ride Advice"):
+            hours_ahead = [0, 1, 2, 3]
+            forecast_results = []
 
+            zone_info = next(z for z in bengaluru_zones if z["zone"] == zone)
+
+            for h in hours_ahead:
+                future_dt = prediction_dt + pd.Timedelta(hours=h)
+                f_temp, f_weather = get_future_weather(zone_info["lat"], zone_info["lon"], future_dt)
+                f_traffic = estimate_future_traffic(future_dt, zone)
+
+                if f_weather not in le_weather.classes_:
+                    f_weather = "Clear"
+
+                df_future = build_input_df(future_dt, zone, f_temp, f_weather, f_traffic, passenger_count)
+                f_pred, f_proba = predict_from_model(model, df_future)
+                f_label = le_surge.inverse_transform([int(f_pred[0])])[0]
+
+                multipliers = {"Low": 1.0, "Medium": 1.3, "High": 1.8}
+                future_cost = base_fare * multipliers[f_label]
+
+                forecast_results.append([future_dt.strftime('%H:%M'), f_label, round(future_cost)])
+
+            forecast_df = pd.DataFrame(forecast_results, columns=["Time", "Surge", "Estimated Fare (₹)"])
+            st.table(forecast_df)
+
+            cheapest = forecast_df.iloc[forecast_df["Estimated Fare (₹)"].idxmin()]
+
+            if cheapest["Surge"] == surge_label:
+                st.info("Fare will remain the same. No strong advantage in waiting.")
+            elif cheapest["Estimated Fare (₹)"] < base_fare * multipliers[surge_label]:
+                st.success(f"Best time to book: {cheapest['Time']} — Estimated fare: ₹{int(cheapest['Estimated Fare (₹)'])}")
+            else:
+                st.warning("Prices are rising. If possible, book now.")
+
+            cheaper_zones = []
+            for z in bengaluru_zones:
+                df_zone = build_input_df(prediction_dt, z["zone"], temp, weather_desc, traffic, passenger_count)
+                p_zone, _ = predict_from_model(model, df_zone)
+                label_zone = le_surge.inverse_transform([int(p_zone[0])])[0]
+                cost_zone = base_fare * multipliers[label_zone]
+                cheaper_zones.append((z["zone"], label_zone, cost_zone))
+
+            cheaper_df = pd.DataFrame(cheaper_zones, columns=["Zone", "Surge", "Fare (₹)"])
+            cheaper_df = cheaper_df.sort_values("Fare (₹)")
+
+            best_zone = cheaper_df.iloc[0]
+            if best_zone["Fare (₹)"] < base_fare * multipliers[surge_label]:
+                st.write(f"Cheapest nearby pickup zone: **{best_zone['Zone']}** — ₹{int(best_zone['Fare (₹)'])}")
+
+
+    
 with tabs[1]:
     st.header("Live Surge Map of Bengaluru")
     
@@ -287,7 +316,6 @@ with tabs[1]:
     zone_df["color"] = zone_df["surge_label"].map({"Low": "green", "Medium": "orange", "High": "red"})
 
     st.subheader("Surge Predictions by Zone")
-    st.dataframe(zone_df[["zone", "surge_label", "multiplier"]])
 
     m = folium.Map(location=[12.97, 77.59], zoom_start=12)
 
@@ -303,6 +331,7 @@ with tabs[1]:
         ).add_to(m)
 
     st_folium(m, width=800, height=550)
+    st.dataframe(zone_df[["zone", "surge_label", "multiplier"]])
 
 with tabs[2]:
     st.header("Explainability (SHAP)")

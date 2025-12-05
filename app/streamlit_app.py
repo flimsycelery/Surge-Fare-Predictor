@@ -317,24 +317,33 @@ with tabs[1]:
     zone_df["multiplier"] = multipliers
     zone_df["color"] = zone_df["surge_label"].map({"Low": "green", "Medium": "orange", "High": "red"})
 
-    st.subheader("Surge Predictions by Zone")
+    col_table, col_map = st.columns([1, 2])
 
-    m = folium.Map(location=[12.97, 77.59], zoom_start=12)
+    with col_table:
+        st.subheader("Zone Data")
+        st.dataframe(
+            zone_df[["zone", "surge_label", "multiplier"]], 
+            use_container_width=True, 
+            hide_index=True
+        )
 
-    for _, r in zone_df.iterrows():
-        folium.CircleMarker(
-            location=[r["lat"], r["lon"]],
-            radius=12,
-            color=r["color"],
-            fill=True,
-            fill_color=r["color"],
-            fill_opacity=0.8,
-            popup=f"{r['zone']} — {r['surge_label']} — x{r['multiplier']}"
-        ).add_to(m)
+    with col_map:
+        st.subheader("Map View")
+        m = folium.Map(location=[12.97, 77.59], zoom_start=12)
 
-    st_folium(m, width=800, height=550)
-    st.dataframe(zone_df[["zone", "surge_label", "multiplier"]])
+        for _, r in zone_df.iterrows():
+            folium.CircleMarker(
+                location=[r["lat"], r["lon"]],
+                radius=12,
+                color=r["color"],
+                fill=True,
+                fill_color=r["color"],
+                fill_opacity=0.8,
+                popup=f"{r['zone']} — {r['surge_label']} — x{r['multiplier']}"
+            ).add_to(m)
 
+        st_folium(m, height=500, use_container_width=True)
+        
 with tabs[2]:
     st.header("Explainability (SHAP)")
     import shap

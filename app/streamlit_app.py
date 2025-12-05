@@ -148,10 +148,11 @@ bengaluru_zones = [
 st.set_page_config(page_title="SurgeSense", layout="wide")
 
 if "selected_date" not in st.session_state:
-    st.session_state.selected_date = pd.Timestamp.now().date()
+    st.session_state.selected_date = pd.Timestamp.now(tz='Asia/Kolkata').date()
 
 if "selected_time" not in st.session_state:
-    st.session_state.selected_time = pd.Timestamp.now().time()
+    current_time = pd.Timestamp.now(tz='Asia/Kolkata').time()
+    st.session_state.selected_time = current_time.replace(second=0, microsecond=0)
 
 tabs = st.tabs(["Home", "Map & Zones", "Explainability"])
 
@@ -169,6 +170,7 @@ with tabs[0]:
             value=st.session_state.selected_date,
             min_value=today,
             max_value=max_date,
+            format="DD/MM/YYYY",
             help="Prediction is limited to 5 days ahead due to weather forecast accuracy."
         )
         st.session_state.selected_date = selected_date
@@ -262,7 +264,7 @@ with tabs[1]:
     
     prediction_dt = pd.to_datetime(f"{st.session_state.selected_date} {st.session_state.selected_time}")
     
-    st.write(f"Showing surge prediction for: {prediction_dt.strftime('%Y-%m-%d %H:%M')}")
+    st.write(f"Showing surge prediction for: **{prediction_dt.strftime('%d-%b-%Y %I:%M %p')}**")
     st.write(f"Hour: {prediction_dt.hour}, Day of week: {prediction_dt.weekday()}, Base traffic estimate: {estimate_future_traffic(prediction_dt)}")
     
     zone_df = pd.DataFrame(bengaluru_zones)

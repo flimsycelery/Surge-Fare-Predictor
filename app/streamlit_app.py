@@ -343,7 +343,7 @@ with tabs[1]:
             ).add_to(m)
 
         st_folium(m, height=500, use_container_width=True)
-        
+
 with tabs[2]:
     st.header("Explainability (SHAP)")
     import shap
@@ -352,8 +352,8 @@ with tabs[2]:
     data_path = ROOT / "data" / "processed" / "merged_data.csv"
     full = pd.read_csv(data_path)
     
-    full["zone"] = le_zone.transform(full["zone"])
-    full["weather"] = le_weather.transform(full["weather"])
+    full["zone"] = le_zone.transform(full["zone"].astype(str))
+    full["weather"] = le_weather.transform(full["weather"].astype(str))
     
     X = full[feature_names].sample(500, random_state=42)
 
@@ -370,10 +370,9 @@ with tabs[2]:
     
     if shap_vals_target.shape[1] != X.shape[1]:
         st.warning(f"Mismatch detected. Plotting without feature values.")
-        shap.summary_plot(shap_vals_target, show=False)
-        st.pyplot(plt.gcf())
-        plt.clf()
+        shap.summary_plot(shap_vals_target, max_display=10, show=False, plot_size=(8, 4))
     else:
-        shap.summary_plot(shap_vals_target, X, show=False)
-        st.pyplot(plt.gcf())
-        plt.clf()
+        shap.summary_plot(shap_vals_target, X, max_display=10, show=False, plot_size=(8, 4))
+    
+    st.pyplot(plt.gcf(), use_container_width=True)
+    plt.clf()
